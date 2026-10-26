@@ -49,12 +49,39 @@ def normalize(row):
     }
 
 
+def _from_label_values(entry):
+    """Parse the label_values format present in newer Instagram exports."""
+    fields = {}
+    tags = []
+    for section in entry.get('label_values', []):
+        if not isinstance(section, dict):
+            continue
+        label = str(section.get('label', '')).casefold()
+        if label in {'url', 'caption', 'title'}:
+            fields[label] = section.get('href') or section.get('value') or ''
+        elif str(section.get('title', '')).casefold() == 'hashtags':
+            for group in section.get('dict', []):
+                if not isinstance(group, dict):
+                    continue
+                for pair in group.get('dict', []):
+                    if isinstance(pair, dict) and str(pair.get('label', '')).casefold() == 'name':
+                        tag = str(pair.get('value', '')).strip().lstrip('#')
+                        if tag:
+                            tags.append('#' + tag)
+    return {'url': fields.get('url', ''),
+            'caption': fields.get('caption', '') or fields.get('title', ''),
+            'hashtags': ' '.join(tags),
+            'timestamp': entry.get('timestamp', '')}
+
+
 def _from_json(data):
     """Supports common Meta activity shape and normalized JSON list; no guessing media access."""
     if isinstance(data, list):
         for obj in data:
             if isinstance(obj, dict):
-                if 'string_list_data' in obj:
+                if 'label_values' in obj:
+                    yield _from_label_values(obj)
+                elif 'string_list_data' in obj:
                     values = obj.get('string_list_data') or []
                     for item in values:
                         if isinstance(item, dict):
