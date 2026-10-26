@@ -1,0 +1,4 @@
+-r requirements.txt
+sentence-transformers>=3,<7
+opencv-python-headless>=4.9,<5
+faster-whisper>=1.0,<2
